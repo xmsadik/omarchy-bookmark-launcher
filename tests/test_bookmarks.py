@@ -185,7 +185,7 @@ class Render(unittest.TestCase):
     def test_render_both_browsers(self):
         lines, total = bm.render([self.chromium_source(), self.firefox_source()], S)
         menu = parse_menu("{\n" + "\n".join(lines) + "\n}")
-        labels = {v["label"]: (k, v) for k, v in menu.items()}
+        labels = {v["label"]: (k, v) for k, v in menu.items() if "label" in v}
 
         # Chromium: merged, de-duplicated, empty folder and javascript: dropped.
         for name in ["Example", "Docs", "Later", "Synced", "Work", "Other bookmarks"]:
@@ -245,6 +245,66 @@ class Cleanup(unittest.TestCase):
         import subprocess
         subprocess.run([sys.executable, "-I", "-c", code, menu, bm.PLUGIN_ID, cache], check=True)
         self.assertEqual(open(menu).read(), user)
+
+
+class Placement(unittest.TestCase):
+    """Bookmarks goes just above About by hiding About/System and re-adding copies."""
+
+    def setUp(self):
+        self.omarchy = tempfile.mkdtemp(dir=_TMP)
+        os.makedirs(os.path.join(self.omarchy, "default", "omarchy"))
+        os.makedirs(os.path.join(self.omarchy, "default", "i18n", "tr"))
+        with open(os.path.join(self.omarchy, "default", "omarchy", "omarchy-menu.jsonc"), "w") as f:
+            f.write("""{
+  // comment
+  "apps": {"icon":"a","label":"Apps","provider":"apps"},
+  "update": {"icon":"u","label":"Update"},
+  "about": {"icon":"i","label":"About","action":"omarchy-launch-about"},
+  "system": {"icon":"s","label":"System","aliases":["power-menu"]},
+  "system.lock": {"icon":"l","label":"Lock","action":"omarchy-system-lock"},
+}""")
+        with open(os.path.join(self.omarchy, "default", "i18n", "tr", "menu.json"), "w") as f:
+            json.dump({"about": {"label": "Hakkında"}, "system": {"label": "Sistem"}}, f)
+        self.old = os.environ.get("OMARCHY_PATH")
+        os.environ["OMARCHY_PATH"] = self.omarchy
+
+    def tearDown(self):
+        if self.old is None:
+            os.environ.pop("OMARCHY_PATH", None)
+        else:
+            os.environ["OMARCHY_PATH"] = self.old
+
+    def merged_root(self, lang):
+        """Mimic mergeMenuSources + isVisible for the root level."""
+        with open(bm.default_menu_file()) as f:
+            defaults = parse_menu(f.read())
+        lines, _ = bm.render([], bm.Strings(lang), lang)
+        user = parse_menu("{\n" + "\n".join(lines) + "\n}")
+        merged = dict(defaults)
+        for k, v in user.items():
+            merged[k] = {**merged.get(k, {}), **v}
+        return [(k, v) for k, v in merged.items()
+                if "." not in k and v.get("when") != "false"], merged
+
+    def test_bookmarks_sits_above_about(self):
+        root, merged = self.merged_root("en")
+        self.assertEqual([v["label"] for _, v in root], ["Apps", "Update", "Bookmarks", "About", "System"])
+        self.assertEqual(merged["bookmarks-then-about"]["action"], "omarchy-launch-about")
+        self.assertEqual(merged["bookmarks-then-system"]["target"], "system")
+        # The originals keep their ids, aliases and children for routes and search.
+        self.assertEqual(merged["system"]["aliases"], ["power-menu"])
+        self.assertIn("system.lock", merged)
+
+    def test_copies_use_omarchy_translations(self):
+        root, _ = self.merged_root("tr")
+        self.assertEqual([v["label"] for _, v in root][-3:], ["Yer İmleri", "Hakkında", "Sistem"])
+
+    def test_no_anchor_means_no_reordering(self):
+        with open(bm.default_menu_file(), "w") as f:
+            f.write('{"apps": {"label": "Apps"}}')
+        self.assertEqual(bm.moved_rows("en"), [])
+        os.remove(bm.default_menu_file())
+        self.assertEqual(bm.moved_rows("en"), [])
 
 
 if __name__ == "__main__":

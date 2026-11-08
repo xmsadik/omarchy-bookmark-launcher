@@ -7,7 +7,8 @@ it came from (and, for Chromium browsers, in the right profile).
 
 ## Features
 
-- Lives in the Omarchy menu: no separate overlay or extra keybinding to learn.
+- Lives in the Omarchy menu, just above **About**: no separate overlay or extra
+  keybinding to learn.
 - Searchable by title, URL, and folder path.
 - Each bookmark opens in its own browser and profile, and the window is focused.
 - Stays in sync: new or edited bookmarks appear within about 10 seconds, and a
@@ -63,6 +64,11 @@ files and keeps a clearly marked block of rows in that file up to date:
 - Chromium browsers: `Bookmarks` and `AccountBookmarks` in each profile.
 - Firefox browsers: `places.sqlite`, read from a temporary copy because the
   browser keeps the live database locked.
+- To sit above **About**, the block hides Omarchy's About and System rows
+  (`"when": "false"`) and adds copies of them right after Bookmarks. Their
+  icons, actions and translated labels are read from Omarchy's own menu files,
+  so they keep following Omarchy updates, and the originals stay reachable by
+  `omarchy menu summon system` and in search.
 - Every 10 seconds the service compares the files' timestamps and sizes, and
   only rewrites the menu when something changed.
 

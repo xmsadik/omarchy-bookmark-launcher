@@ -54,7 +54,7 @@ SIGNATURE_FILE = os.path.join(CACHE_DIR, "signature")
 LOCK_FILE = os.path.join(CACHE_DIR, "lock")
 LANGUAGE_FILE = os.path.join(CONFIG, "omarchy", "language")
 
-FORMAT_VERSION = "2"
+FORMAT_VERSION = "3"
 # Service.qml deletes this exact block on unload; keep the two in sync.
 BEGIN = f"  // >>> {PLUGIN_ID}: generated automatically, edits here are overwritten"
 END = f"  // <<< {PLUGIN_ID}"
@@ -265,6 +265,12 @@ def discover():
 def signature(sources, lang):
     h = hashlib.sha256(FORMAT_VERSION.encode())
     h.update(lang.encode())
+    for f in (default_menu_file(), menu_catalog_file(lang)):
+        try:
+            st = os.stat(f)
+            h.update(f"{f}|{st.st_mtime_ns}|{st.st_size}".encode())
+        except (OSError, TypeError):
+            pass
     h.update(SELF.encode())
     for s in sources:
         h.update(f"{s['browser']['key']}|{s['profile']}|{s['profile_label']}".encode())
@@ -412,7 +418,79 @@ def row(item_id, fields):
     return f"  {js(item_id)}: {{{body}}},"
 
 
-def render(sources, S):
+# ---------------------------------------------------------------- placement
+#
+# The launcher lists rows in the order their ids first appear, defaults first,
+# so a new root row always lands after Omarchy's own (below About and System).
+# To show Bookmarks just above About, hide the default root rows from About on
+# (`when: false` keeps them routable and their children searchable) and add a
+# copy of each right after Bookmarks: an action keeps its action, a submenu
+# becomes a link to the original. Icons, actions and the translated labels are
+# read from Omarchy's own files at sync time, so they follow Omarchy updates.
+
+PLACE_BEFORE = "about"
+
+
+def omarchy_path():
+    return os.environ.get("OMARCHY_PATH") or "/usr/share/omarchy"
+
+
+def default_menu_file():
+    return os.path.join(omarchy_path(), "default", "omarchy", "omarchy-menu.jsonc")
+
+
+def menu_catalog_file(lang):
+    for code in (lang, lang.split("-")[0], "en"):
+        path = os.path.join(omarchy_path(), "default", "i18n", code, "menu.json")
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def strip_jsonc(raw):
+    """Port of stripJsonc() in Omarchy's shell/plugins/menu/MenuModel.js."""
+    raw = re.sub(r"^[ \t\f\v\r\u2028\u2029]*//[^\n]*(\n|$)", "", raw, flags=re.M)
+    return re.sub(r",(\s*[}\]])", r"\1", raw)
+
+
+def moved_rows(lang):
+    """Rows that put Bookmarks before PLACE_BEFORE, or [] if that can't be done safely."""
+    try:
+        with open(default_menu_file(), encoding="utf-8") as f:
+            defaults = json.loads(strip_jsonc(f.read()))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(defaults, dict):
+        return []
+    roots = [k for k, v in defaults.items()
+             if isinstance(v, dict) and "." not in k and v.get("parent", "root") == "root"]
+    if PLACE_BEFORE not in roots:
+        return []
+    catalog = read_json(menu_catalog_file(lang) or "") or {}
+
+    hide, copies = [], []
+    for item_id in roots[roots.index(PLACE_BEFORE):]:
+        if item_id == MENU_ID:
+            continue
+        entry = defaults[item_id]
+        translated = catalog.get(item_id) if isinstance(catalog.get(item_id), dict) else {}
+        label = translated.get("label") or entry.get("label") or item_id
+        copy = {"icon": entry.get("icon", ""), "label": label}
+        if entry.get("iconFont"):
+            copy["iconFont"] = entry["iconFont"]
+        if entry.get("action"):
+            copy["action"] = entry["action"]
+            for key in ("when", "checked", "disabled"):
+                if entry.get(key):
+                    copy[key] = entry[key]
+        else:
+            copy["target"] = entry.get("target") or item_id
+        hide.append(row(item_id, {"when": "false"}))
+        copies.append(row(f"{MENU_ID}-then-{item_id}", copy))
+    return hide + copies
+
+
+def render(sources, S, lang="en"):
     lines = [BEGIN]
     lines.append(row(MENU_ID, {"icon": ICON_ROOT, "label": S.t("menu.title"), "aliases": ["bookmarks"], "description": S.t("menu.description")}))
 
@@ -489,6 +567,7 @@ def render(sources, S):
         "label": S.t("menu.refresh"),
         "action": f"exec python3 -I {shq(SELF)} sync --force --notify",
     }))
+    lines.extend(moved_rows(lang))
     lines.append(END)
     return lines, total
 
@@ -561,7 +640,7 @@ def cmd_sync(force, notify_done):
             old = ""
         if not force and has_block and old == sig:
             return 0
-        block, total = render(sources, S)
+        block, total = render(sources, S, lang)
         new = splice(text, block)
         if new != text:
             write_menu(new)
