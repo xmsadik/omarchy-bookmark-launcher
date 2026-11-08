@@ -5,6 +5,11 @@ Chrome, Firefox and friends show up under **Bookmarks** in the menu, and typing 
 title or a domain in the launcher finds them. Each bookmark opens in the browser
 it came from (and, for Chromium browsers, in the right profile).
 
+<p>
+  <img src="screenshots/01-launcher.png" alt="Bookmarks in the Omarchy launcher, just above About" height="420">
+  <img src="screenshots/02-bookmarks.png" alt="The Bookmarks submenu with Chrome and Firefox" height="180">
+</p>
+
 ## Features
 
 - Lives in the Omarchy menu, just above **About**: no separate overlay or extra
@@ -27,8 +32,18 @@ detected too. A browser is shown only when it is installed and has bookmarks.
 
 ## Install
 
+Review the repository, then add the plugin:
+
 ```bash
-omarchy plugin add https://github.com/xmsadik/omarchy-bookmark-launcher.git --enable
+omarchy plugin add https://github.com/xmsadik/omarchy-bookmark-launcher.git
+```
+
+Accept the prompt to enable the plugin during installation.
+
+For an unattended install from a repository you already trust:
+
+```bash
+omarchy plugin add https://github.com/xmsadik/omarchy-bookmark-launcher.git --enable --yes
 ```
 
 Then open the launcher (<kbd>Super</kbd> + <kbd>Space</kbd>) and type the name of
@@ -36,9 +51,24 @@ a bookmark, or open **Bookmarks** from the menu.
 
 Requires `python3` (part of the Omarchy base install). No other dependencies.
 
-### Keybinding (optional)
+## Update
 
-Jump straight to the Bookmarks submenu by adding this to `~/.config/hypr/bindings.lua`:
+Review and apply the next fast-forward update:
+
+```bash
+omarchy plugin update xmsadik.bookmark-launcher
+```
+
+Or update all Git-managed plugins:
+
+```bash
+omarchy plugin update --all
+```
+
+## Keybinding (optional)
+
+The plugin does not add any keybinding. To jump straight to the Bookmarks
+submenu, add one yourself to `~/.config/hypr/bindings.lua` (pick a free key):
 
 ```lua
 o.bind("SUPER + B", "Bookmarks", "omarchy menu summon bookmarks")
@@ -72,7 +102,25 @@ files and keeps a clearly marked block of rows in that file up to date:
 - Every 10 seconds the service compares the files' timestamps and sizes, and
   only rewrites the menu when something changed.
 
-## Privacy and safety
+## Security and privacy
+
+This plugin runs unsandboxed inside `omarchy-shell` when enabled. Review its
+source and the behavior below before installing it.
+
+- **Background service:** every 10 seconds it runs `python3 bookmarks.py sync`
+  at low priority. Most runs only compare file timestamps and exit.
+- **Files read:** browser bookmark files (`Bookmarks`, `AccountBookmarks`,
+  `Local State`, `profiles.ini`, `places.sqlite`) under `~/.config`,
+  `~/.mozilla`, `~/.zen`, `~/.librewolf`, `~/.floorp`, `~/.waterfox` and
+  `~/.var/app`, plus Omarchy's menu defaults and translations and
+  `~/.config/omarchy/language`.
+- **Files written:** only the marked block in
+  `~/.config/omarchy/extensions/omarchy-menu.jsonc`, and a cache in
+  `~/.cache/xmsadik.bookmark-launcher/`.
+- **Commands run:** when you pick a bookmark, the browser it came from, via
+  `omarchy-cmd-browser-handoff` or `systemd-run`/`uwsm-app`, then
+  `omarchy-hyprland-focus-app`; `notify-send` after a manual refresh.
+- **Network:** none.
 
 - Everything stays on your machine. The plugin makes no network requests.
 - Only `http` and `https` bookmarks are imported. `javascript:`, `file:`,
@@ -91,6 +139,12 @@ omarchy plugin remove xmsadik.bookmark-launcher
 The generated block is removed from the menu file automatically when the plugin
 is disabled or removed. To remove it by hand, delete the lines between the two
 `xmsadik.bookmark-launcher` marker comments.
+
+## Validate from source
+
+```bash
+omarchy plugin validate .
+```
 
 ## Development
 
