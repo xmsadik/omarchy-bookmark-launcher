@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "xmsadik.bookmark-launcher",
+  "name": "Bookmark Launcher",
+  "version": "1.0.0",
+  "author": "xmsadik",
+  "description": "Search your Chrome, Firefox and other browsers' bookmarks right in the Omarchy launcher; each opens in the browser it came from.",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

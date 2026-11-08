@@ -1,0 +1,14 @@
+{
+  "menu.title": "Yer İmleri",
+  "menu.description": "Tarayıcı yer imleri",
+  "menu.count": { "one": "%1 yer imi", "other": "%1 yer imi" },
+  "menu.empty": "Yer imi bulunamadı",
+  "menu.refresh": "Yer imlerini yenile",
+  "folder": "Klasör",
+  "folder.other": "Diğer yer imleri",
+  "folder.mobile": "Mobil yer imleri",
+  "folder.menu": "Yer imleri menüsü",
+  "profile": "Profil",
+  "notify.title": "Yer imleri yenilendi",
+  "notify.body": { "one": "%2 tarayıcıdan %1 yer imi", "other": "%2 tarayıcıdan %1 yer imi" }
+}

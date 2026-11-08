@@ -1,0 +1,14 @@
+{
+  "menu.title": "Bookmarks",
+  "menu.description": "Browser bookmarks",
+  "menu.count": { "one": "%1 bookmark", "other": "%1 bookmarks" },
+  "menu.empty": "No bookmarks found",
+  "menu.refresh": "Refresh bookmarks",
+  "folder": "Folder",
+  "folder.other": "Other bookmarks",
+  "folder.mobile": "Mobile bookmarks",
+  "folder.menu": "Bookmarks menu",
+  "profile": "Profile",
+  "notify.title": "Bookmarks refreshed",
+  "notify.body": { "one": "%1 bookmark from %2 browser(s)", "other": "%1 bookmarks from %2 browser(s)" }
+}
